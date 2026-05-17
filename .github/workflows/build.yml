@@ -1,0 +1,51 @@
+name: Automated Windows Compiler
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # This lets you click a button on GitHub to build manually
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSYS2 Environment
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: UCRT64
+        update: true
+        install: >-
+          mingw-w64-ucrt-x86_64-gcc
+          mingw-w64-ucrt-x86_64-cmake
+          mingw-w64-ucrt-x86_64-ninja
+          mingw-w64-ucrt-x86_64-boost
+          git
+
+    - name: Compile Statically Linked Binaryen
+      run: |
+        cd binaryen
+        mkdir -p build && cd build
+        cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_STATIC_LIB=ON ..
+        cmake --build .
+
+    - name: Build Final Watermarker Executables
+      run: |
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
+        mkdir -p build/binaryen/build/lib
+        cp binaryen/build/lib/libbinaryen.a build/binaryen/build/lib/
+        cmake --build build
+
+    - name: Save Executables as Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: game-patch-watermarker-tools
+        path: build/bin/*.exe
