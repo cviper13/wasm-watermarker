@@ -2,8 +2,8 @@ name: Automated Windows Compiler
 
 on:
   push:
-    branches: [ "main", "master" ]
-  workflow_dispatch: # This lets you click a button on GitHub to build manually
+    branches: [ "main", "master", "new" ] # Added 'new' since your logs show you are on branch 'new'
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: false # Skip Git's broken submodule tracking
 
     - name: Setup MSYS2 Environment
       uses: msys2/setup-msys2@v2
@@ -29,6 +29,11 @@ jobs:
           mingw-w64-ucrt-x86_64-ninja
           mingw-w64-ucrt-x86_64-boost
           git
+
+    - name: Manually Clone Binaryen Repository
+      run: |
+        rm -rf binaryen
+        git clone https://github.com/WebAssembly/binaryen.git binaryen
 
     - name: Compile Statically Linked Binaryen
       run: |
