@@ -1,4 +1,4 @@
-name: Automated Windows Compiler
+name: Supercharged Cross-Compiler (Linux to Windows)
 
 on:
   push:
@@ -7,10 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
+    runs-on: ubuntu-latest # Switched to lightning-fast Ubuntu
 
     steps:
     - name: Checkout repository
@@ -18,46 +15,55 @@ jobs:
       with:
         submodules: true
 
-    - name: Setup MSYS2 Environment
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: UCRT64
-        update: true
-        install: >-
-          mingw-w64-ucrt-x86_64-gcc
-          mingw-w64-ucrt-x86_64-cmake
-          mingw-w64-ucrt-x86_64-ninja
-          mingw-w64-ucrt-x86_64-boost
-          git
+    - name: Install Toolchain Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build mingw-w64 libboost-all-dev git
+
+    - name: Create Windows Cross-Compile Toolchain File
+      run: |
+        cat << 'EOF' > mingw-toolchain.cmake
+        set(CMAKE_SYSTEM_NAME Windows)
+        set(CMAKE_SYSTEM_PROCESSOR x86_64)
+
+        # Target compilers
+        set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+        set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
+        set(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
+
+        # Adjust the search behavior of find_xxx commands
+        set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+        set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+        set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+        EOF
 
     - name: Configure CMake Project
       run: |
-        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
+        # Inject the toolchain file so CMake cross-compiles natively
+        cmake -B build -G "Ninja" \
+          -DCMAKE_TOOLCHAIN_FILE=../mingw-toolchain.cmake \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
 
     - name: Build External Dependencies First
       run: |
-        # Force compilation of the external project targets
         cmake --build build --target binaryen
         cmake --build build --target fmt
 
     - name: Fix Layout Paths For Ninja
       run: |
-        # Ensure target destination directories exist inside the build folder
         mkdir -p build/binaryen/build/lib
         mkdir -p build/fmt/build
 
-        # Copy the libraries from your custom redirected folder (build/lib) 
-        # to the specific sub-folders the internal scripts are searching for
         cp build/lib/libbinaryen.a build/binaryen/build/lib/ 2>/dev/null || cp build/binaryen/build/lib/libbinaryen.a build/binaryen/build/lib/ || true
         cp build/lib/libfmt.a build/fmt/build/ 2>/dev/null || cp build/fmt/build/libfmt.a build/fmt/build/ || true
 
     - name: Build Final Watermarker Executables
       run: |
-        # Execute the main compilation step now that files match expectation
         cmake --build build
 
     - name: Save Executables as Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: game-patch-watermarker-tools
+        name: game-patch-watermarker-tools-windows
         path: build/bin/*.exe
