@@ -2,7 +2,7 @@ name: Automated Windows Compiler
 
 on:
   push:
-    branches: [ "main", "master", "new" ] # Added 'new' since your logs show you are on branch 'new'
+    branches: [ "main", "master", "new" ]
   workflow_dispatch: 
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        submodules: false # Skip Git's broken submodule tracking
+        submodules: true
 
     - name: Setup MSYS2 Environment
       uses: msys2/setup-msys2@v2
@@ -30,23 +30,30 @@ jobs:
           mingw-w64-ucrt-x86_64-boost
           git
 
-    - name: Manually Clone Binaryen Repository
+    - name: Configure CMake Project
       run: |
-        rm -rf binaryen
-        git clone https://github.com/WebAssembly/binaryen.git binaryen
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
 
-    - name: Compile Statically Linked Binaryen
+    - name: Build External Dependencies First
       run: |
-        cd binaryen
-        mkdir -p build && cd build
-        cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_STATIC_LIB=ON ..
-        cmake --build .
+        # Force compilation of the external project targets
+        cmake --build build --target binaryen
+        cmake --build build --target fmt
+
+    - name: Fix Layout Paths For Ninja
+      run: |
+        # Ensure target destination directories exist inside the build folder
+        mkdir -p build/binaryen/build/lib
+        mkdir -p build/fmt/build
+
+        # Copy the libraries from your custom redirected folder (build/lib) 
+        # to the specific sub-folders the internal scripts are searching for
+        cp build/lib/libbinaryen.a build/binaryen/build/lib/ 2>/dev/null || cp build/binaryen/build/lib/libbinaryen.a build/binaryen/build/lib/ || true
+        cp build/lib/libfmt.a build/fmt/build/ 2>/dev/null || cp build/fmt/build/libfmt.a build/fmt/build/ || true
 
     - name: Build Final Watermarker Executables
       run: |
-        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
-        mkdir -p build/binaryen/build/lib
-        cp binaryen/build/lib/libbinaryen.a build/binaryen/build/lib/
+        # Execute the main compilation step now that files match expectation
         cmake --build build
 
     - name: Save Executables as Artifacts
