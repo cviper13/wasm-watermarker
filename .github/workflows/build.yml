@@ -15,11 +15,11 @@ jobs:
       with:
         submodules: false
 
-    - name: Install Toolchain and Windows Dependencies
+    - name: Install Toolchain and Cross Dependencies
       run: |
         sudo apt-get update
-        # Added libboost-mingw-w64-dev to provide Windows-compatible Boost headers/libs
-        sudo apt-get install -y cmake ninja-build mingw-w64 libboost-mingw-w64-dev git
+        # Using standard libboost-dev for headers
+        sudo apt-get install -y cmake ninja-build mingw-w64 libboost-dev git
 
     - name: Create Windows Cross-Compile Toolchain File
       run: |
@@ -32,13 +32,13 @@ jobs:
         set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
         set(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
 
-        # Guide CMake to check the Mingw-w64 target environment directories for libraries like Boost
-        set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)
+        # Allow searching the host system specifically for Boost headers
+        set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32 /usr)
 
-        # Adjust the search behavior of find_xxx commands
+        # Force CMake to find host system headers for dependencies if needed
         set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
         set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-        set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+        set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH) # Changed to BOTH so it finds standard linux boost headers
         EOF
 
     - name: Configure CMake Project
