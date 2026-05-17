@@ -7,10 +7,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-runs-on: ubuntu-latest
     
-    # Setting this globally forces ALL isolated sub-builds (like Binaryen) 
-    # to inherit the Windows configuration automatically.
     env:
       CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/mingw-toolchain.cmake
 
@@ -24,6 +22,12 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake ninja-build mingw-w64 libboost-dev git
+
+    - name: Patch Upstream Dependency References
+      run: |
+        # Upstream fmtlib retired the 'master' branch name.
+        # This dynamically updates your local cmake script to target 'main' instead.
+        sed -i 's/master/main/g' cmake/fmt.cmake
 
     - name: Create Windows Cross-Compile Toolchain File
       run: |
@@ -47,7 +51,6 @@ jobs:
 
     - name: Configure CMake Project
       run: |
-        # Configures smoothly without passing flags manually since the env variable takes care of it
         cmake -B build -G "Ninja" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
