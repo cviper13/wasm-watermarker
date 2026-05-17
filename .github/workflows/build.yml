@@ -52,12 +52,7 @@ jobs:
 
     - name: Configure CMake Project
       run: |
-        # Added -DBUILD_TESTING=OFF to drop the GoogleTest requirement
-        cmake -B build -G "Ninja" \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_TESTING=OFF \
-          -DENABLE_TESTING=OFF \
-          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release .
 
     - name: Build External Dependencies First
       run: |
