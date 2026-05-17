@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Typo fixed!
+    runs-on: ubuntu-latest
     
     env:
       CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/mingw-toolchain.cmake
@@ -26,8 +26,9 @@ jobs:
     - name: Patch Upstream Dependency References
       run: |
         # Upstream fmtlib retired the 'master' branch name.
-        # This dynamically updates your local cmake script to target 'main' instead.
-        sed -i 's/master/main/g' cmake/fmt.cmake
+        if [ -f cmake/fmt.cmake ]; then
+          sed -i 's/master/main/g' cmake/fmt.cmake
+        fi
 
     - name: Create Windows Cross-Compile Toolchain File
       run: |
@@ -51,8 +52,11 @@ jobs:
 
     - name: Configure CMake Project
       run: |
+        # Added -DBUILD_TESTING=OFF to drop the GoogleTest requirement
         cmake -B build -G "Ninja" \
           -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTING=OFF \
+          -DENABLE_TESTING=OFF \
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .
 
     - name: Build External Dependencies First
@@ -65,8 +69,9 @@ jobs:
         mkdir -p build/binaryen/build/lib
         mkdir -p build/fmt/build
 
-        cp build/lib/libbinaryen.a build/binaryen/build/lib/ 2>/dev/null || cp build/binaryen/build/lib/libbinaryen.a build/binaryen/build/lib/ || true
-        cp build/lib/libfmt.a build/fmt/build/ 2>/dev/null || cp build/fmt/build/libfmt.a build/fmt/build/ || true
+        # Safely mirror static libraries where the final targets expect them
+        [ -f build/lib/libbinaryen.a ] && cp build/lib/libbinaryen.a build/binaryen/build/lib/ || true
+        [ -f build/lib/libfmt.a ] && cp build/lib/libfmt.a build/fmt/build/ || true
 
     - name: Build Final Watermarker Executables
       run: |
