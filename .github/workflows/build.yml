@@ -13,12 +13,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        submodules: false # Disabled to bypass the missing .gitmodules error
+        submodules: false
 
-    - name: Install Toolchain Dependencies
+    - name: Install Toolchain and Windows Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build mingw-w64 libboost-all-dev git
+        # Added libboost-mingw-w64-dev to provide Windows-compatible Boost headers/libs
+        sudo apt-get install -y cmake ninja-build mingw-w64 libboost-mingw-w64-dev git
 
     - name: Create Windows Cross-Compile Toolchain File
       run: |
@@ -31,6 +32,9 @@ jobs:
         set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
         set(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
 
+        # Guide CMake to check the Mingw-w64 target environment directories for libraries like Boost
+        set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)
+
         # Adjust the search behavior of find_xxx commands
         set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
         set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
@@ -39,7 +43,6 @@ jobs:
 
     - name: Configure CMake Project
       run: |
-        # Pointing to ../mingw-toolchain.cmake relatively from the build directory
         cmake -B build -G "Ninja" \
           -DCMAKE_TOOLCHAIN_FILE=../mingw-toolchain.cmake \
           -DCMAKE_BUILD_TYPE=Release \
