@@ -7,13 +7,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Switched to lightning-fast Ubuntu
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        submodules: true
+        submodules: false # Disabled to bypass the missing .gitmodules error
 
     - name: Install Toolchain Dependencies
       run: |
@@ -39,7 +39,7 @@ jobs:
 
     - name: Configure CMake Project
       run: |
-        # Inject the toolchain file so CMake cross-compiles natively
+        # Pointing to ../mingw-toolchain.cmake relatively from the build directory
         cmake -B build -G "Ninja" \
           -DCMAKE_TOOLCHAIN_FILE=../mingw-toolchain.cmake \
           -DCMAKE_BUILD_TYPE=Release \
